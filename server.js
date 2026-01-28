@@ -26,7 +26,7 @@ app.use(express.json());
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://ca2-web.onrender.com",
+  "https://webserviceweb.onrender.com/",
   // "https://YOUR-frontend.onrender.com"
 ];
 
@@ -54,7 +54,7 @@ app.get("/", (req, res) => {
 // GET all animals
 app.get("/allanimals", async (req, res) => {
   try {
-    const [rows] = await pool.execute("SELECT * FROM animal");
+    const [rows] = await pool.execute("SELECT * FROM animalweb");
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -71,6 +71,7 @@ app.post("/addanimal", async (req, res) => {
     animal_habitat,
     animal_diet,
     animal_agg,
+    animal_cat,
     animal_pic,
   } = req.body;
 
@@ -81,7 +82,7 @@ app.post("/addanimal", async (req, res) => {
 
   try {
     const sql =
-      "INSERT INTO animal (animal_name, animal_char, animal_desc, animal_habitat, animal_diet, animal_agg, animal_pic) VALUES (?, ?, ?, ?, ?, ?, ?)";
+      "INSERT INTO animalweb (animal_name, animal_char, animal_desc, animal_habitat, animal_diet, animal_agg, animal_cat,animal_pic) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     const values = [
       animal_name,
       animal_char,
@@ -89,6 +90,7 @@ app.post("/addanimal", async (req, res) => {
       animal_habitat,
       animal_diet,
       animal_agg,
+      animal_cat,
       animal_pic,
     ];
 
@@ -110,6 +112,7 @@ app.put("/updateanimal/:id", async (req, res) => {
     animal_habitat,
     animal_diet,
     animal_agg,
+    animal_cat,
     animal_pic,
   } = req.body;
 
@@ -119,8 +122,8 @@ app.put("/updateanimal/:id", async (req, res) => {
 
   try {
     const sql = `
-      UPDATE animal
-      SET animal_name = ?, animal_char = ?, animal_desc = ?, animal_habitat = ?, animal_diet = ?, animal_agg = ?, animal_pic = ?
+      UPDATE animalweb
+      SET animal_name = ?, animal_char = ?, animal_desc = ?, animal_habitat = ?, animal_diet = ?, animal_agg = ?, animal_cat = ?, animal_pic = ?
       WHERE id = ?
     `;
 
@@ -131,6 +134,7 @@ app.put("/updateanimal/:id", async (req, res) => {
       animal_habitat,
       animal_diet,
       animal_agg,
+      animal_cat,
       animal_pic,
       id,
     ];
@@ -153,7 +157,7 @@ app.delete("/deleteanimal/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await pool.execute("DELETE FROM animal WHERE id = ?", [id]);
+    const [result] = await pool.execute("DELETE FROM animalweb WHERE id = ?", [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: `No animal found with id ${id}` });
