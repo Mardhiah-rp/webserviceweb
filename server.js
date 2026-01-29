@@ -62,6 +62,21 @@ app.get("/allanimals", async (req, res) => {
   }
 });
 
+app.get("/animals/category/:category", async (req, res) => {
+  try {
+    const { category } = req.params;
+
+    const [rows] = await db.query(
+      "SELECT * FROM animals WHERE animal_cat = ?",
+      [category]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST add animal
 app.post("/addanimal", async (req, res) => {
   const {
