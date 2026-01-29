@@ -77,6 +77,19 @@ app.get("/animals/category/:category", async (req, res) => {
   }
 });
 
+app.get("/api/animals/count", async (req, res) => {
+  try {
+    const [rows] = await pool.execute(
+      "SELECT COUNT(id) AS count FROM animalweb"
+    );
+
+    res.json({ count: rows[0].count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch animal count" });
+  }
+});
+
 // POST add animal
 app.post("/addanimal", async (req, res) => {
   const {
