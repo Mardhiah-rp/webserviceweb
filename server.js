@@ -1,40 +1,42 @@
 const express = require("express");
 const mysql = require("mysql2/promise");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 const port = process.env.PORT || 3000;
+
+// Demo user (hardcoded)
+const DEMO_USER = { id: 1, username: "admin", password: "admin123" };
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,  // <-- make sure this matches your schema name
+  database: process.env.DB_NAME,
   port: process.env.DB_PORT,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 };
 
-// Create a connection pool (best practice)
+// Create a connection pool
 const pool = mysql.createPool(dbConfig);
 
 const app = express();
-app.use(cors());            // <-- IMPORTANT for web apps (React)
 app.use(express.json());
 
-
+// ✅ Keep only ONE cors middleware (configured)
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://webserviceweb.onrender.com/",
-  // "https://YOUR-frontend.onrender.com"
+  "https://webserviceweb.onrender.com", // remove trailing slash
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (Postman/server-to-server)
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // Postman/server-to-server
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -46,10 +48,58 @@ app.use(
     credentials: false,
   })
 );
-// Health check (optional but useful for Render)
+
+// Health check
 app.get("/", (req, res) => {
   res.json({ message: "Animal API is running!" });
 });
+
+
+// ==========================
+// ✅ 1) LOGIN ENDPOINT
+// ==========================
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  if (username !== DEMO_USER.username || password !== DEMO_USER.password) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  const token = jwt.sign(
+    { userId: DEMO_USER.id, username: DEMO_USER.username },
+    JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+
+  res.json({ token });
+});
+
+
+// ==========================
+// ✅ 2) AUTH MIDDLEWARE
+// ==========================
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization; // "Bearer <token>"
+  if (!header) return res.status(401).json({ error: "Missing Authorization header" });
+
+  const [type, token] = header.split(" ");
+  if (type !== "Bearer" || !token) {
+    return res.status(401).json({ error: "Invalid Authorization format" });
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.user = payload; // attach decoded user info
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid/Expired token" });
+  }
+}
+
+
+// ==========================
+// YOUR EXISTING ROUTES
+// ==========================
 
 // GET all animals
 app.get("/allanimals", async (req, res) => {
@@ -62,27 +112,25 @@ app.get("/allanimals", async (req, res) => {
   }
 });
 
+// ✅ FIXED category route (was using db.query + wrong table name)
 app.get("/animals/category/:category", async (req, res) => {
   try {
     const { category } = req.params;
-
-    const [rows] = await db.query(
-      "SELECT * FROM animals WHERE animal_cat = ?",
+    const [rows] = await pool.execute(
+      "SELECT * FROM animalweb WHERE animal_cat = ?",
       [category]
     );
-
     res.json(rows);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
+// Count route
 app.get("/api/animals/count", async (req, res) => {
   try {
-    const [rows] = await pool.execute(
-      "SELECT COUNT(id) AS count FROM animalweb"
-    );
-
+    const [rows] = await pool.execute("SELECT COUNT(id) AS count FROM animalweb");
     res.json({ count: rows[0].count });
   } catch (err) {
     console.error(err);
@@ -90,8 +138,12 @@ app.get("/api/animals/count", async (req, res) => {
   }
 });
 
-// POST add animal
-app.post("/addanimal", async (req, res) => {
+
+// ==========================
+// ✅ PROTECT ONLY THIS ROUTE
+// (like the worksheet says)
+// ==========================
+app.post("/addanimal", requireAuth, async (req, res) => {
   const {
     animal_name,
     animal_char,
@@ -103,14 +155,13 @@ app.post("/addanimal", async (req, res) => {
     animal_pic,
   } = req.body;
 
-  // Basic validation (prevents inserting empty stuff)
   if (!animal_name) {
     return res.status(400).json({ message: "animal_name is required." });
   }
 
   try {
     const sql =
-      "INSERT INTO animalweb (animal_name, animal_char, animal_desc, animal_habitat, animal_diet, animal_agg, animal_cat,animal_pic) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+      "INSERT INTO animalweb (animal_name, animal_char, animal_desc, animal_habitat, animal_diet, animal_agg, animal_cat, animal_pic) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     const values = [
       animal_name,
       animal_char,
@@ -130,7 +181,7 @@ app.post("/addanimal", async (req, res) => {
   }
 });
 
-// PUT update animal by id
+// PUT update animal (not protected yet)
 app.put("/updateanimal/:id", async (req, res) => {
   const { id } = req.params;
   const {
@@ -143,10 +194,6 @@ app.put("/updateanimal/:id", async (req, res) => {
     animal_cat,
     animal_pic,
   } = req.body;
-
-  if (!id) {
-    return res.status(400).json({ message: "id is required in params." });
-  }
 
   try {
     const sql = `
@@ -180,7 +227,7 @@ app.put("/updateanimal/:id", async (req, res) => {
   }
 });
 
-// DELETE animal by id
+// DELETE animal (not protected yet)
 app.delete("/deleteanimal/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -198,7 +245,6 @@ app.delete("/deleteanimal/:id", async (req, res) => {
   }
 });
 
-// Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
