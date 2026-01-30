@@ -6,7 +6,7 @@ require("dotenv").config();
 
 const port = process.env.PORT || 3000;
 
-// Demo user (hardcoded)
+
 const DEMO_USER = { id: 1, username: "admin", password: "admin123" };
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
@@ -21,22 +21,20 @@ const dbConfig = {
   queueLimit: 0,
 };
 
-// Create a connection pool
 const pool = mysql.createPool(dbConfig);
 
 const app = express();
 app.use(express.json());
 
-// ✅ Keep only ONE cors middleware (configured)
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://webserviceweb.onrender.com", // remove trailing slash
+  "https://webserviceweb.onrender.com", 
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Postman/server-to-server
+      if (!origin) return callback(null, true); 
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -49,15 +47,13 @@ app.use(
   })
 );
 
-// Health check
+
 app.get("/", (req, res) => {
   res.json({ message: "Animal API is running!" });
 });
 
 
-// ==========================
-// ✅ 1) LOGIN ENDPOINT
-// ==========================
+
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -75,11 +71,8 @@ app.post("/login", (req, res) => {
 });
 
 
-// ==========================
-// ✅ 2) AUTH MIDDLEWARE
-// ==========================
 function requireAuth(req, res, next) {
-  const header = req.headers.authorization; // "Bearer <token>"
+  const header = req.headers.authorization; 
   if (!header) return res.status(401).json({ error: "Missing Authorization header" });
 
   const [type, token] = header.split(" ");
@@ -89,7 +82,7 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    req.user = payload; // attach decoded user info
+    req.user = payload; 
     next();
   } catch {
     return res.status(401).json({ error: "Invalid/Expired token" });
@@ -97,11 +90,7 @@ function requireAuth(req, res, next) {
 }
 
 
-// ==========================
-// YOUR EXISTING ROUTES
-// ==========================
 
-// GET all animals
 app.get("/allanimals", async (req, res) => {
   try {
     const [rows] = await pool.execute("SELECT * FROM animalweb");
@@ -112,7 +101,7 @@ app.get("/allanimals", async (req, res) => {
   }
 });
 
-// ✅ FIXED category route (was using db.query + wrong table name)
+
 app.get("/animals/category/:category", async (req, res) => {
   try {
     const { category } = req.params;
@@ -127,7 +116,6 @@ app.get("/animals/category/:category", async (req, res) => {
   }
 });
 
-// Count route
 app.get("/api/animals/count", async (req, res) => {
   try {
     const [rows] = await pool.execute("SELECT COUNT(id) AS count FROM animalweb");
@@ -139,10 +127,7 @@ app.get("/api/animals/count", async (req, res) => {
 });
 
 
-// ==========================
-// ✅ PROTECT ONLY THIS ROUTE
-// (like the worksheet says)
-// ==========================
+
 app.post("/addanimal", requireAuth, async (req, res) => {
   const {
     animal_name,
@@ -181,8 +166,7 @@ app.post("/addanimal", requireAuth, async (req, res) => {
   }
 });
 
-// PUT update animal (not protected yet)
-app.put("/updateanimal/:id", async (req, res) => {
+app.put("/updateanimal/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const {
     animal_name,
@@ -227,8 +211,7 @@ app.put("/updateanimal/:id", async (req, res) => {
   }
 });
 
-// DELETE animal (not protected yet)
-app.delete("/deleteanimal/:id", async (req, res) => {
+app.delete("/deleteanimal/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
