@@ -29,6 +29,7 @@ app.use(express.json());
 const allowedOrigins = [
   "http://localhost:3000",
   "https://webserviceweb.onrender.com", 
+  "https://c219-web-app-ca2-7mna.onrender.com/"
 ];
 
 app.use(
